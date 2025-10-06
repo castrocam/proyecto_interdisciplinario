@@ -1,121 +1,150 @@
-#define BLYNK_TEMPLATE_ID "TU_TEMPLATE_ID"
-#define BLYNK_DEVICE_NAME "Pastillero"
-#define BLYNK_AUTH_TOKEN "TU_AUTH_TOKEN"
+#define BLYNK_TEMPLATE_ID "TMPL2NiUWdbIU"
+#define BLYNK_TEMPLATE_NAME "Pastillero"
+#define BLYNK_AUTH_TOKEN "Sn2XCwbcd1JWb4JSs4iMzZelZzWC5Plz"
 
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
 #include <TimeLib.h>
 #include <WidgetRTC.h>
 
-// Credenciales WiFi
-char ssid[] = "TU_WIFI";
-char pass[] = "TU_PASS";
+// --- CONFIGURACIÓN DE TU WIFI ---
+char ssid[] = "Dormitorio de Ina";
+char pass[] = "RU16763856";
 
 BlynkTimer timer;
 WidgetRTC rtc;
 
-// Pines de los motores (pueden cambiar según tu circuito)
-#define MOTOR_A_DERECHA D1
-#define MOTOR_A_IZQUIERDA D2
-#define MOTOR_B_DERECHA D3
-#define MOTOR_B_IZQUIERDA D4
+// --- PINES DEL MOTOR ULN2003 ---
+#define IN1 D1
+#define IN2 D2
+#define IN3 D3
+#define IN4 D4
 
-// Variables para horarios
-TimeInputParam horarios(V1);  // V1 = widget de entrada de tiempo
+// Variables para guardar el horario programado
+int horaProgramada = -1;
+int minutoProgramado = -1;
+
+int horaProgramada2 = -1;
+int minutoProgramado2 = -1;
 
 BLYNK_CONNECTED() {
   rtc.begin();
+  Serial.println("RTC iniciado. Esperando horario desde la app...");
 }
 
-// Recibe horarios desde Blynk
+// Recibe horarios desde la app Blynk
 BLYNK_WRITE(V1) {
-  if (param.hasStartTime() && param.hasStopTime()) {
-    Serial.println("Horarios configurados:");
-    for (int i = 0; i < 7; i++) {
-      if (param.isWeekdaySelected(i)) {
-        Serial.print("Dia ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.print(param.getStartHour());
-        Serial.print(":");
-        Serial.print(param.getStartMinute());
-        Serial.print(" - ");
-        Serial.print(param.getStopHour());
-        Serial.print(":");
-        Serial.println(param.getStopMinute());
-      }
-    }
+  TimeInputParam horario(param);
+
+  if (horario.hasStartTime()) {
+    horaProgramada = horario.getStartHour();
+    minutoProgramado = horario.getStartMinute();
+
+    Serial.print("Horario recibido desde la app: ");
+    Serial.print(horaProgramada);
+    Serial.print(":");
+    Serial.println(minutoProgramado);
   } else {
-    Serial.println("No hay horarios configurados.");
+    Serial.println("No hay horario configurado.");
+    horaProgramada = -1;
+    minutoProgramado = -1;
   }
 }
 
-// Chequea cada minuto si coincide la hora
+BLYNK_WRITE(V2) {
+  TimeInputParam horario(param);
+
+  if (horario.hasStartTime()) {
+    horaProgramada2 = horario.getStartHour();
+    minutoProgramado2 = horario.getStartMinute();
+
+    Serial.print("Horario 2 (izquierda) recibido: ");
+    Serial.print(horaProgramada2);
+    Serial.print(":");
+    Serial.println(minutoProgramado2);
+  } else {
+    Serial.println("No hay horario 2 configurado.");
+    horaProgramada2 = -1;
+    minutoProgramado2 = -1;
+  }
+}
+
+
+// Secuencia simple para girar el motor paso a paso
+void girarMotorDerecha() {
+  Serial.println("Girando motor a la derecha...");
+  for (int i = 0; i < 200; i++) {
+    digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW); digitalWrite(IN3, LOW); digitalWrite(IN4, LOW); delay(5);
+    digitalWrite(IN1, LOW);  digitalWrite(IN2, HIGH); delay(5);
+    digitalWrite(IN2, LOW);  digitalWrite(IN3, HIGH); delay(5);
+    digitalWrite(IN3, LOW);  digitalWrite(IN4, HIGH); delay(5);
+  }
+  apagarMotor();
+}
+
+// 🔄 Giro a la izquierda
+void girarMotorIzquierda() {
+  Serial.println("Girando motor a la izquierda...");
+  for (int i = 0; i < 200; i++) {
+    digitalWrite(IN4, HIGH); digitalWrite(IN3, LOW); digitalWrite(IN2, LOW); digitalWrite(IN1, LOW); delay(5);
+    digitalWrite(IN4, LOW);  digitalWrite(IN3, HIGH); delay(5);
+    digitalWrite(IN3, LOW);  digitalWrite(IN2, HIGH); delay(5);
+    digitalWrite(IN2, LOW);  digitalWrite(IN1, HIGH); delay(5);
+  }
+  apagarMotor();
+}
+
+// Apaga el motor
+void apagarMotor() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
+
+// Chequea la hora actual y compara con la programada
 void checkSchedule() {
-  if (horarios.hasStartTime() && horarios.isWeekdaySelected(weekday() - 1)) {
-    int hora = hour();
-    int minuto = minute();
+  int h = hour();
+  int m = minute();
 
-    if (hora == horarios.getStartHour() && minuto == horarios.getStartMinute()) {
-      Serial.println("¡Hora de activar motores!");
+  Serial.print("Hora actual: ");
+  Serial.print(h);
+  Serial.print(":");
+  Serial.println(m);
 
-      // Ejemplo: alternar entre pastillas
-      // Aquí decides qué motor activar
-      activarPastilla(1);  // Podés llamar a 1, 2, 3 o 4 según corresponda
+  // Comparar con horario 1 (derecha)
+  if (horaProgramada1 != -1 && minutoProgramado1 != -1) {
+    if (h == horaProgramada1 && m == minutoProgramado1) {
+      Serial.println("⏩ Coincidencia con horario 1 → girar derecha");
+      girarMotorDerecha();
     }
   }
-}
 
-// Función para activar motores según pastilla
-void activarPastilla(int pastilla) {
-  apagarMotores();  // seguridad
-
-  switch (pastilla) {
-    case 1: // Pastilla 1 → Motor A derecha
-      digitalWrite(MOTOR_A_DERECHA, HIGH);
-      delay(2000);  // tiempo de giro
-      break;
-
-    case 2: // Pastilla 2 → Motor A izquierda
-      digitalWrite(MOTOR_A_IZQUIERDA, HIGH);
-      delay(2000);
-      break;
-
-    case 3: // Pastilla 3 → Motor B derecha
-      digitalWrite(MOTOR_B_DERECHA, HIGH);
-      delay(2000);
-      break;
-
-    case 4: // Pastilla 4 → Motor B izquierda
-      digitalWrite(MOTOR_B_IZQUIERDA, HIGH);
-      delay(2000);
-      break;
+  // Comparar con horario 2 (izquierda)
+  if (horaProgramada2 != -1 && minutoProgramado2 != -1) {
+    if (h == horaProgramada2 && m == minutoProgramado2) {
+      Serial.println("⏪ Coincidencia con horario 2 → girar izquierda");
+      girarMotorIzquierda();
+    }
   }
-  apagarMotores();
-}
-
-// Apaga todos los motores
-void apagarMotores() {
-  digitalWrite(MOTOR_A_DERECHA, LOW);
-  digitalWrite(MOTOR_A_IZQUIERDA, LOW);
-  digitalWrite(MOTOR_B_DERECHA, LOW);
-  digitalWrite(MOTOR_B_IZQUIERDA, LOW);
 }
 
 void setup() {
   Serial.begin(9600);
 
-  pinMode(MOTOR_A_DERECHA, OUTPUT);
-  pinMode(MOTOR_A_IZQUIERDA, OUTPUT);
-  pinMode(MOTOR_B_DERECHA, OUTPUT);
-  pinMode(MOTOR_B_IZQUIERDA, OUTPUT);
-  apagarMotores();
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  apagarMotor();
 
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
-  timer.setInterval(60000L, checkSchedule);  // cada minuto chequea horarios
+  timer.setInterval(60000L, checkSchedule); // revisa cada minuto
 }
 
 void loop() {
   Blynk.run();
   timer.run();
 }
+
+
