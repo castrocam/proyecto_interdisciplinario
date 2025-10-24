@@ -15,10 +15,10 @@ BlynkTimer timer;
 WidgetRTC rtc;
 
 // --- PINES DEL MOTOR ULN2003 ---
-#define IN1 D1
-#define IN2 D2
-#define IN3 D3
-#define IN4 D4
+#define IN1 D0
+#define IN2 D3
+#define IN3 D4
+#define IN4 D5
 
 // Variables para guardar el horario programado
 int horaProgramada = -1;
@@ -146,5 +146,4 @@ void loop() {
   Blynk.run();
   timer.run();
 }
-
 

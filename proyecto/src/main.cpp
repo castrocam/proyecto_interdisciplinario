@@ -1,15 +1,14 @@
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
 
-// Def. de la dirección I2C y las dimensiones 
-// del LCD --> investigar si es 0x27 o 0x3f
+
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 void setup() {
   // Inicializa el LCD
     lcd.init();
     
-    // Enciende la luz de fondo (backlight)
+    // Enciende la luz de fondo
     lcd.backlight();
     
     // Muestra un mensaje inicial
