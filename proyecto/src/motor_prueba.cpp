@@ -7,143 +7,176 @@
 #include <TimeLib.h>
 #include <WidgetRTC.h>
 
-// --- CONFIGURACIÓN DE TU WIFI ---
-char ssid[] = "Dormitorio de Ina";
-char pass[] = "RU16763856";
+char ssid[] = "WifiVicky";
+char pass[] = "louaylor";
 
 BlynkTimer timer;
 WidgetRTC rtc;
 
+<<<<<<< HEAD
 // --- PINES DEL MOTOR ULN2003 ---
 #define IN1 D0
 #define IN2 D3
 #define IN3 D4
 #define IN4 D5
+=======
+// Motor A (Primer motor)
+#define IN1_A D0
+#define IN2_A D3
+#define IN3_A D4
+#define IN4_A D5
+>>>>>>> ebd707e (Actualizado para dos motores)
 
-// Variables para guardar el horario programado
-int horaProgramada = -1;
-int minutoProgramado = -1;
+// Motor B (Segundo motor)
+#define IN1_B D6
+#define IN2_B D7
+#define IN3_B D8
+#define IN4_B RX 
 
-int horaProgramada2 = -1;
-int minutoProgramado2 = -1;
+// Estructura para almacenar horarios
+struct Horario {
+  int hora;
+  int minuto;
+};
+
+Horario horariosA_derecha[6];
+Horario horariosA_izquierda[6];
+Horario horariosB_derecha[6];
+Horario horariosB_izquierda[6];
+
+// Resetea horarios
+void resetHorarios(Horario arr[]) {
+  for(int i=0; i<6; i++){
+    arr[i].hora = -1;
+    arr[i].minuto = -1;
+  }
+}
 
 BLYNK_CONNECTED() {
   rtc.begin();
-  Serial.println("RTC iniciado. Esperando horario desde la app...");
+  Serial.println("RTC iniciado");
 }
 
-// Recibe horarios desde la app Blynk
-BLYNK_WRITE(V1) {
-  TimeInputParam horario(param);
+// --- V1 a V6 ---> Motor A derecha
+// --- V7 a V12 ---> Motor A izquierda
+// --- V13 a V18 ---> Motor B derecha
+// --- V19 a V24 ---> Motor B izquierda
 
-  if (horario.hasStartTime()) {
-    horaProgramada = horario.getStartHour();
-    minutoProgramado = horario.getStartMinute();
+BLYNK_WRITE_DEFAULT() {
+  int pin = request.pin;
+  int idx = (pin-1) % 6; // índice 0-5
 
-    Serial.print("Horario recibido desde la app: ");
-    Serial.print(horaProgramada);
-    Serial.print(":");
-    Serial.println(minutoProgramado);
-  } else {
-    Serial.println("No hay horario configurado.");
-    horaProgramada = -1;
-    minutoProgramado = -1;
+  TimeInputParam t(param);
+
+  if (!t.hasStartTime()) {
+    Serial.println("Horario borrado");
+    return;
+  }
+
+  int h = t.getStartHour();
+  int m = t.getStartMinute();
+
+  if(pin >=1 && pin <=6){
+    horariosA_derecha[idx] = {h,m};
+    Serial.printf("Motor A derecha [%d] %02d:%02d\n",idx,h,m);
+  }
+  if(pin >=7 && pin <=12){
+    horariosA_izquierda[idx] = {h,m};
+    Serial.printf("Motor A izquierda [%d] %02d:%02d\n",idx,h,m);
+  }
+  if(pin >=13 && pin <=18){
+    horariosB_derecha[idx] = {h,m};
+    Serial.printf("Motor B derecha [%d] %02d:%02d\n",idx,h,m);
+  }
+  if(pin >=19 && pin <=24){
+    horariosB_izquierda[idx] = {h,m};
+    Serial.printf("Motor B izquierda [%d] %02d:%02d\n",idx,h,m);
   }
 }
 
-BLYNK_WRITE(V2) {
-  TimeInputParam horario(param);
-
-  if (horario.hasStartTime()) {
-    horaProgramada2 = horario.getStartHour();
-    minutoProgramado2 = horario.getStartMinute();
-
-    Serial.print("Horario 2 (izquierda) recibido: ");
-    Serial.print(horaProgramada2);
-    Serial.print(":");
-    Serial.println(minutoProgramado2);
-  } else {
-    Serial.println("No hay horario 2 configurado.");
-    horaProgramada2 = -1;
-    minutoProgramado2 = -1;
+// FUNCIÓN DE MOVIMIENTO MOTOR A
+void moverA(bool derecha){
+  for(int i=0; i<200; i++){
+    if(derecha){
+      digitalWrite(IN1_A,HIGH); digitalWrite(IN2_A,LOW); digitalWrite(IN3_A,LOW); digitalWrite(IN4_A,LOW); delay(4);
+      digitalWrite(IN1_A,LOW); digitalWrite(IN2_A,HIGH); delay(4);
+      digitalWrite(IN2_A,LOW); digitalWrite(IN3_A,HIGH); delay(4);
+      digitalWrite(IN3_A,LOW); digitalWrite(IN4_A,HIGH); delay(4);
+    } else {
+      digitalWrite(IN4_A,HIGH); digitalWrite(IN3_A,LOW); digitalWrite(IN2_A,LOW); digitalWrite(IN1_A,LOW); delay(4);
+      digitalWrite(IN4_A,LOW); digitalWrite(IN3_A,HIGH); delay(4);
+      digitalWrite(IN3_A,LOW); digitalWrite(IN2_A,HIGH); delay(4);
+      digitalWrite(IN2_A,LOW); digitalWrite(IN1_A,HIGH); delay(4);
+    }
   }
+  apagarMotores();
 }
 
-
-// Secuencia simple para girar el motor paso a paso
-void girarMotorDerecha() {
-  Serial.println("Girando motor a la derecha...");
-  for (int i = 0; i < 200; i++) {
-    digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW); digitalWrite(IN3, LOW); digitalWrite(IN4, LOW); delay(5);
-    digitalWrite(IN1, LOW);  digitalWrite(IN2, HIGH); delay(5);
-    digitalWrite(IN2, LOW);  digitalWrite(IN3, HIGH); delay(5);
-    digitalWrite(IN3, LOW);  digitalWrite(IN4, HIGH); delay(5);
+// FUNCIÓN DE MOVIMIENTO MOTOR B
+void moverB(bool derecha){
+  for(int i=0; i<200; i++){
+    if(derecha){
+      digitalWrite(IN1_B,HIGH); digitalWrite(IN2_B,LOW); digitalWrite(IN3_B,LOW); digitalWrite(IN4_B,LOW); delay(4);
+      digitalWrite(IN1_B,LOW); digitalWrite(IN2_B,HIGH); delay(4);
+      digitalWrite(IN2_B,LOW); digitalWrite(IN3_B,HIGH); delay(4);
+      digitalWrite(IN3_B,LOW); digitalWrite(IN4_B,HIGH); delay(4);
+    } else {
+      digitalWrite(IN4_B,HIGH); digitalWrite(IN3_B,LOW); digitalWrite(IN2_B,LOW); digitalWrite(IN1_B,LOW); delay(4);
+      digitalWrite(IN4_B,LOW); digitalWrite(IN3_B,HIGH); delay(4);
+      digitalWrite(IN3_B,LOW); digitalWrite(IN2_B,HIGH); delay(4);
+      digitalWrite(IN2_B,LOW); digitalWrite(IN1_B,HIGH); delay(4);
+    }
   }
-  apagarMotor();
+  apagarMotores();
 }
 
-// 🔄 Giro a la izquierda
-void girarMotorIzquierda() {
-  Serial.println("Girando motor a la izquierda...");
-  for (int i = 0; i < 200; i++) {
-    digitalWrite(IN4, HIGH); digitalWrite(IN3, LOW); digitalWrite(IN2, LOW); digitalWrite(IN1, LOW); delay(5);
-    digitalWrite(IN4, LOW);  digitalWrite(IN3, HIGH); delay(5);
-    digitalWrite(IN3, LOW);  digitalWrite(IN2, HIGH); delay(5);
-    digitalWrite(IN2, LOW);  digitalWrite(IN1, HIGH); delay(5);
-  }
-  apagarMotor();
+// APAGAR TODOS
+void apagarMotores(){
+  digitalWrite(IN1_A,LOW); digitalWrite(IN2_A,LOW); digitalWrite(IN3_A,LOW); digitalWrite(IN4_A,LOW);
+  digitalWrite(IN1_B,LOW); digitalWrite(IN2_B,LOW); digitalWrite(IN3_B,LOW); digitalWrite(IN4_B,LOW);
 }
 
-// Apaga el motor
-void apagarMotor() {
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, LOW);
-}
-
-// Chequea la hora actual y compara con la programada
-void checkSchedule() {
+// REVISAR HORARIOS CADA MINUTO
+void checkSchedule(){
   int h = hour();
   int m = minute();
 
-  Serial.print("Hora actual: ");
-  Serial.print(h);
-  Serial.print(":");
-  Serial.println(m);
-
-  // Comparar con horario 1 (derecha)
-  if (horaProgramada1 != -1 && minutoProgramado1 != -1) {
-    if (h == horaProgramada1 && m == minutoProgramado1) {
-      Serial.println("⏩ Coincidencia con horario 1 → girar derecha");
-      girarMotorDerecha();
+  for(int i=0;i<6;i++){
+    if(horariosA_derecha[i].hora == h && horariosA_derecha[i].minuto == m){
+      moverA(true);
     }
-  }
-
-  // Comparar con horario 2 (izquierda)
-  if (horaProgramada2 != -1 && minutoProgramado2 != -1) {
-    if (h == horaProgramada2 && m == minutoProgramado2) {
-      Serial.println("⏪ Coincidencia con horario 2 → girar izquierda");
-      girarMotorIzquierda();
+    if(horariosA_izquierda[i].hora == h && horariosA_izquierda[i].minuto == m){
+      moverA(false);
+    }
+    if(horariosB_derecha[i].hora == h && horariosB_derecha[i].minuto == m){
+      moverB(true);
+    }
+    if(horariosB_izquierda[i].hora == h && horariosB_izquierda[i].minuto == m){
+      moverB(false);
     }
   }
 }
 
-void setup() {
+void setup(){
   Serial.begin(9600);
 
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  pinMode(IN3, OUTPUT);
-  pinMode(IN4, OUTPUT);
-  apagarMotor();
+  pinMode(IN1_A,OUTPUT); pinMode(IN2_A,OUTPUT); pinMode(IN3_A,OUTPUT); pinMode(IN4_A,OUTPUT);
+  pinMode(IN1_B,OUTPUT); pinMode(IN2_B,OUTPUT); pinMode(IN3_B,OUTPUT); pinMode(IN4_B,OUTPUT);
+
+  resetHorarios(horariosA_derecha);
+  resetHorarios(horariosA_izquierda);
+  resetHorarios(horariosB_derecha);
+  resetHorarios(horariosB_izquierda);
 
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
-  timer.setInterval(60000L, checkSchedule); // revisa cada minuto
+  timer.setInterval(60000L, checkSchedule);
 }
 
-void loop() {
+void loop(){
   Blynk.run();
   timer.run();
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> ebd707e (Actualizado para dos motores)
