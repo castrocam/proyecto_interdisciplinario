@@ -4,6 +4,7 @@
 #define MOTOR_A D1  // Giro horario
 #define MOTOR_B D2  // Giro antihorario
 
+
 void setup() {
   Serial.begin(115200);
 
