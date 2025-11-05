@@ -10,6 +10,8 @@
 #define BLYNK_TEMPLATE_NAME "Pastillero"
 #define BLYNK_AUTH_TOKEN "Sn2XCwbcd1JWb4JSs4iMzZelZzWC5Plz"
 
+char ssid[] = "WifiVicky";
+char pass[] = "louaylor";
 
 BlynkTimer timer;
 WidgetRTC rtc;
@@ -22,13 +24,17 @@ WidgetRTC rtc;
 #define IN4_A D6
 
 
-
 // Motor B (Segundo motor)
 #define IN1_B D7
 #define IN2_B D8
 #define IN3_B RX
 #define IN4_B TX 
 
+// Botón
+const int pinBoton = D3;
+
+//LCD
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // Estructura para almacenar horarios
 struct Horario {
@@ -55,13 +61,7 @@ void checkSchedule();
 void leerBoton();
 
 
-char ssid[] = "WifiVicky";
-char pass[] = "louaylor";
-
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-
 // --- Variables para el Botón ---
-const int pinBoton = D3;
 bool mensajePendiente = false; // Flag para el mensaje "Retirar Pastilla"
 
 // Variables para el anti-rebote (debounce)
@@ -75,8 +75,8 @@ void setup() {
 
   // Configura el pin del botón con la resistencia pull-up interna
   pinMode(pinBoton, INPUT_PULLUP);
-  // checkSchedule();
 }
+
 void loop() {
   Blynk.run();
   timer.run();
@@ -95,15 +95,13 @@ void initializeMotorsAndBlynk(){
   resetHorarios(horariosB_izquierda);
 
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
-  timer.setInterval(60000L, checkSchedule);
-  // Timer para actualizar el LCD (cada segundo)
-  timer.setInterval(1000L, showTime);
+  timer.setInterval(60000L, checkSchedule);   // revisa cada minuto
+  timer.setInterval(1000L, showTime);         // actualiza el LCD cada segundo
 }
 
 void initializeDisplay() {
     // Inicializa el LCD
     lcd.init();
-    
     // Enciende la luz de fondo
     lcd.backlight();
 }
@@ -208,23 +206,23 @@ void checkSchedule(){
   for(int i=0;i<6;i++){
     if(horariosA_derecha[i].hora == h && horariosA_derecha[i].minuto == m){
       moverA(true);
-
       mensajePendiente = true;
+      Blynk.logEvent("horario_pastilla", "Pastilla 1 lista");
     }
     if(horariosA_izquierda[i].hora == h && horariosA_izquierda[i].minuto == m){
       moverA(false);
-
       mensajePendiente = true;
+      Blynk.logEvent("horario_pastilla", "Pastilla 2 lista");
     }
     if(horariosB_derecha[i].hora == h && horariosB_derecha[i].minuto == m){
       moverB(true);
-
       mensajePendiente = true;
+      Blynk.logEvent("horario_pastilla", "Pastilla 3 lista");
     }
     if(horariosB_izquierda[i].hora == h && horariosB_izquierda[i].minuto == m){
       moverB(false);
-
       mensajePendiente = true;
+      Blynk.logEvent("horario_pastilla", "Pastilla 4 lista");
     }
   }
 }
